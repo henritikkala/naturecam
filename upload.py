@@ -1,6 +1,7 @@
 '''
 	Author: Henri Tikkala - tikkala.henri@gmail.com
 '''
+import os
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
@@ -40,6 +41,7 @@ def pydrive_upload(fname):
 	file1.SetContentFile(fname)
 	file1.Upload() # Files.insert()
 	print('Created file %s in GoogleDrive with mimeType %s' % (file1['title'],file1['mimeType']))
+	os.remove(fname)
 	# Created file with mimeType image
 
 	#file2 = drive.CreateFile({'id': file1['id']})
