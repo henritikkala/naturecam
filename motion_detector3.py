@@ -8,6 +8,11 @@ import datetime
 import time
 import cv2
 import numpy as np
+import os
+import shutil
+import threading
+from mountusb import mount, unmount, get_media_path
+from mountusb import list_media_devices
 from upload import pydrive_upload
 from isinternet import internet
 
@@ -25,11 +30,27 @@ def NatureCam(minA):
 	kernel = np.ones((5,5),np.uint8)
 	min_area = minA
 	fgbg = cv2.createBackgroundSubtractorMOG2()
+	devices = list_media_devices()
+	pathusb = ''
 	print "Press 'q' when want to quit."
+
+	# Mount all usb devices(usb stick with raspi) and get mount path
+	for device in devices:
+		mount(device)
+		pathusb = get_media_path(device)
+		#print pathusb
+	if len(pathusb) > 0:
+		pathusb = os.path.join(pathusb, 'NatureCam_pics')
+	else:
+		pathusb = os.path.join('/home/$USER', 'NatureCam_pics')
+	if not os.path.isdir(pathusb):
+		os.makedirs(pathusb)
+		print "Created directory: " +pathusb
+	#print pathusb
 	
 	# Set time counter for still-image interval
 	end = time.time()
-	start = end #end - 57
+	start = end - 25
 	delta = 0
 
 	# Is it stream...
@@ -98,28 +119,33 @@ def NatureCam(minA):
 		#print("Contours: " + repr(i))	
 		
 		# Save image with timestamp
-		if i > 0 and framenum > 2 and delta > 10:
+		if i > 0 and framenum > 2 and delta > 30:
 			#print("Frame number: " + repr(framenum))
 			#print("Contours: " + repr(i))
-			fname = "smthng-" + str(timestamp.strftime("%Y_%m_%d_%H:%M")) + ".jpg"
-			cv2.imwrite(fname, frame)
+			tmp = 'NC-' + str(timestamp.strftime('%Y_%m_%d_%H_%M')) + '.jpg'
+			fname2 = os.path.join(pathusb, tmp)
+			cv2.imwrite(tmp, frame)
 			start = time.time()
 			frames = 0
-			print "Image saved..."
 			# If Internet is online
+			#shutil.move(tmp, fname2)
 			if internet() == True:
-				pydrive_upload(fname)
+				t = threading.Thread(target=pydrive_upload, args=(tmp,))
+				t.start()
+			else:
+				shutil.move(tmp, fname2)
+				print "Image saved in "+fname2
 			
 		end = time.time()
 		delta = end - start
-		if (frames > 10 and frames/delta >5):
-			print "%.0f " % (frames/delta) + " frames/s"
+		#if (frames > 10 and frames/delta >5):
+		#	print "%.0f " % (frames/delta) + " frames/s"
 		#print delta
 		
 	print "Program shutting down..."
 	camera.release()
 	cv2.destroyAllWindows()
+	unmount(device)
 	
-	#return fname
 	
 NatureCam(200)
